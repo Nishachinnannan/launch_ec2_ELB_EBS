@@ -1,0 +1,95 @@
+provider "aws" {
+  region     = "us-east-1"
+  access_key = "AKIA6OHC2C73RDBKTWOK"
+  secret_key = "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"
+}
+
+resource "aws_vpc" "trf-test" {
+   cidr_block = "10.0.0.0/16"
+tags = {
+    Name = "trf-test"
+  }
+}
+resource "aws_subnet" "public-subnet" {
+   vpc_id     = "${aws_vpc.trf-test.id}"
+   cidr_block = "10.0.1.0/24"
+   map_public_ip_on_launch = "true"
+   availability_zone = "us-east-1b"
+
+   tags = {
+        Name = "demotrf-test-subnet1"
+        }
+}
+resource "aws_subnet" "public-subnet2"{
+   vpc_id     = "${aws_vpc.trf-test.id}"
+   cidr_block = "10.0.2.0/24"
+   map_public_ip_on_launch = "true"
+   availability_zone = "us-east-1c"
+
+   tags = { Name = "testtrf-test-subnet2" }
+}
+resource "aws_subnet" "public-subnet3"{
+   vpc_id     = "${aws_vpc.trf-test.id}"
+   cidr_block = "10.0.3.0/24"
+   map_public_ip_on_launch = "true"
+   availability_zone = "us-east-1a"
+tags = { Name = "newtrf-test-subnet3" }
+}
+resource "aws_internet_gateway" "trf-igw" {
+  vpc_id = "${aws_vpc.trf-test.id}"
+tags = {
+    Name = "trf-igw"
+  }
+}
+resource "aws_route_table" "r" {
+  vpc_id = "${aws_vpc.trf-test.id}"
+route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = "${aws_internet_gateway.trf-igw.id}"
+  }
+  tags = {
+    Name = "main"
+  }
+}
+resource "aws_eip" "example" {
+  vpc = true
+}
+
+resource "aws_route_table_association" "a" {
+  subnet_id      = "${aws_subnet.public-subnet.id}"
+  route_table_id = "${aws_route_table.r.id}"
+}
+resource "aws_route_table_association" "b" {
+  subnet_id      = "${aws_subnet.public-subnet2.id}"
+  route_table_id = "${aws_route_table.r.id}"
+}
+resource "aws_route_table_association" "c" {
+  subnet_id      = "${aws_subnet.public-subnet3.id}"
+  route_table_id = "${aws_route_table.r.id}"
+}
+resource "aws_security_group" "allow_tls" {
+  name        = "allow_tls"
+  description = "Allow TLS inbound traffic"
+  vpc_id      = "${aws_vpc.trf-test.id}"
+
+  ingress {
+    # TLS (change to whatever ports you need)
+    from_port   = 443
+    to_port     = 443
+   protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/32"]
+
+  }
+
+  tags = {
+    Name = "allow_all"
+  }
+}
+resource "aws_instance" "test" {
+   ami = "ami-00eb20669e0990cb4"
+ availability_zone = "us-east-1b"
+   instance_type = "t2.micro"
+   key_name = "mykey"
+subnet_id = "${aws_subnet.public-subnet.id}"
+vpc_security_group_ids = ["${aws_security_group.sg.id}"]
+}
